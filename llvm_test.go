@@ -1,6 +1,6 @@
 package llvm_test
 
-import "tinygo.org/x/go-llvm"
+import "github.com/goallc/go-llvm"
 
 import "testing"
 
