@@ -1,4 +1,4 @@
-//go:build !byollvm && llvm19
+//go:build !byollvm && !staticllvm && llvm19
 
 package llvm
 
