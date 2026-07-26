@@ -22,7 +22,12 @@ jobs:
       - name: Update Homebrew
         run: brew update
       - name: Install LLVM
-        run: HOMEBREW_NO_AUTO_UPDATE=1 brew install llvm@${{ matrix.llvm }}
+        run: |
+          formula=llvm@${{ matrix.llvm }}
+          if [ "${{ matrix.llvm }}" = 23 ]; then
+            formula=llvm
+          fi
+          HOMEBREW_NO_AUTO_UPDATE=1 brew install "${formula}"
       - name: Test LLVM ${{ matrix.llvm }}
         run:
           go test -v -tags=llvm${{ matrix.llvm }}
