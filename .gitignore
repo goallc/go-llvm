@@ -1,3 +1,4 @@
 llvm-*.src.tar.xz
 llvm-*/
 /llvm
+/libLLVMGoALLC.a*

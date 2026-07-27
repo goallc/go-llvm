@@ -1,19 +1,19 @@
 name: Test
 
-on: [push, pull_request]
+on:
+  push:
+    branches: [master]
+  pull_request:
 
 jobs:
   test:
     runs-on: ubuntu-24.04
-    strategy:
-      matrix:
-        link: [dynamic, static]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/checkout@v4
         with:
           repository: goallc/llvm-project
-          ref: codex/goallc-static-library
+          ref: llvm23.1.master
           path: llvm-project
       - uses: actions/setup-go@v5
         with:
@@ -25,17 +25,30 @@ jobs:
           -DLLVM_TARGETS_TO_BUILD=X86
           -DLLVM_BUILD_LLVM_DYLIB=ON
           -DLLVM_LINK_LLVM_DYLIB=ON
-          -DLLVM_BUILD_GOALLC_STATIC=ON
+          -DLLVM_ENABLE_ZSTD=OFF
           -DLLVM_INCLUDE_BENCHMARKS=OFF
           -DLLVM_INCLUDE_EXAMPLES=OFF
           -DLLVM_INCLUDE_TESTS=OFF
       - name: Build custom LLVM libraries
-        run: cmake --build llvm-build --target LLVM LLVMGoALLC -j2
+        run: cmake --build llvm-build --target LLVM llvm-ar llvm-config -j2
       - name: Assemble LLVM payload
         run: |
           mkdir -p llvm/include
           cp -R llvm-project/llvm/include/. llvm/include/
           cp -R llvm-build/include/. llvm/include/
           ln -s ../llvm-build/lib llvm/lib
-      - name: Test bindings
-        run: go test -v -tags="llvm23 ${{ matrix.link }}llvm" ./...
+      - name: Test dynamic bindings
+        run: go test -v -tags="llvm23 dynamicllvm" ./...
+      - name: Assemble static LLVM archive
+        run: |
+          components=(core analysis bitreader bitwriter irreader linker passes all-targets executionengine mcjit interpreter target)
+          {
+            echo "CREATE $PWD/libLLVMGoALLC.a"
+            for archive in $(llvm-build/bin/llvm-config --link-static --libfiles "${components[@]}"); do
+              echo "ADDLIB $archive"
+            done
+            echo SAVE
+            echo END
+          } | llvm-build/bin/llvm-ar -M
+      - name: Test static bindings
+        run: go test -v -tags="llvm23 staticllvm" ./...

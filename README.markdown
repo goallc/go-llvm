@@ -6,7 +6,8 @@ system-installed LLVM is not supported.
 
 ## LLVM payload
 
-The binding always reads headers and libraries below `${SRCDIR}/llvm`:
+The binding always reads LLVM headers below `${SRCDIR}/llvm`; dynamic linking
+also reads the LLVM shared library there:
 
     llvm/include/llvm-c
     llvm/lib
@@ -22,13 +23,17 @@ The LLVM API version and link mode are independent, mandatory build-tag axes:
 * `llvm23` selects the LLVM 23 API. A future LLVM 24 port will add `llvm24`
   without changing how the payload path or link mode is selected.
 * `dynamicllvm` links `llvm/lib/libLLVM`; it is the GoALLC default.
-* `staticllvm` links the customized aggregate archive
-  `llvm/lib/libLLVMGoALLC.a`.
+* `staticllvm` links `${SRCDIR}/libLLVMGoALLC.a`. GoALLC's `cmd/dist`
+  assembles and caches this build artifact from the selected payload's normal
+  LLVM component archives with `llvm-config` and `llvm-ar`.
 
 For example:
 
     go test -tags='llvm23 dynamicllvm' ./...
     go test -tags='llvm23 staticllvm' ./...
+
+The static command requires `libLLVMGoALLC.a` to have been assembled first.
+The GoALLC toolchain does this automatically for `-llvm-link=static`.
 
 Do not select multiple version tags or multiple link-mode tags in one build.
 
