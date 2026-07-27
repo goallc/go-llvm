@@ -1,76 +1,41 @@
-# Test whether we can link to LLVM installed from apt.llvm.org or Homebrew.
----
-
 name: Test
 
 on: [push, pull_request]
 
 jobs:
-  test-macos:
-    runs-on: macos-latest
-    strategy:
-      matrix:
-        llvm: [14, 15, 16, 17, 18, 19, 20, 21, 22]
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.24'
-      # Optional step when a LLVM version is very new.
-      - name: Update Homebrew
-        run: brew update
-      - name: Install LLVM
-        run: HOMEBREW_NO_AUTO_UPDATE=1 brew install llvm@${{ matrix.llvm }}
-      - name: Test LLVM ${{ matrix.llvm }}
-        run:
-          go test -v -tags=llvm${{ matrix.llvm }}
-  test-linux:
-    runs-on: ubuntu-22.04
-    strategy:
-      matrix:
-        llvm: [14, 15, 16, 17, 18, 19, 20, 21, 22, 23]
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.24'
-      - name: Install LLVM
-        run: |
-          suite=llvm-toolchain-jammy-${{ matrix.llvm }}
-          if [ "${{ matrix.llvm }}" = 23 ]; then
-            suite=llvm-toolchain-jammy
-          fi
-          echo "deb http://apt.llvm.org/jammy/ ${suite} main" | sudo tee /etc/apt/sources.list.d/llvm.list
-          wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
-          sudo apt-get update
-          sudo apt-get install --no-install-recommends llvm-${{ matrix.llvm }}-dev
-      - name: Test LLVM ${{ matrix.llvm }}
-        run:
-          go test -v -tags=llvm${{ matrix.llvm }}
-      - name: Test default LLVM
-        if: matrix.llvm == 23
-        run:
-          go test -v
-  test-linux-fedora:
-    # Fedora uses different paths than other systems, so testing it separately.
+  test:
     runs-on: ubuntu-24.04
     strategy:
       matrix:
-        llvm: [19, 20, 21]
-    container: fedora:43
+        link: [dynamic, static]
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Install dependencies (default LLVM)
-        if: matrix.llvm == 21
-        run: dnf install --assumeyes g++ golang llvm-devel
-      - name: Install dependencies (older LLVM)
-        if: matrix.llvm != 21
-        run: dnf install --assumeyes g++ golang llvm${{ matrix.llvm }}-devel
-      - name: Test LLVM ${{ matrix.llvm }}
-        run:
-          go test -v -tags=llvm${{ matrix.llvm }}
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: goallc/llvm-project
+          ref: codex/goallc-static-library
+          path: llvm-project
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+      - name: Configure custom LLVM 23
+        run: >
+          cmake -S llvm-project/llvm -B llvm-build -G Ninja
+          -DCMAKE_BUILD_TYPE=Release
+          -DLLVM_TARGETS_TO_BUILD=X86
+          -DLLVM_BUILD_LLVM_DYLIB=ON
+          -DLLVM_LINK_LLVM_DYLIB=ON
+          -DLLVM_BUILD_GOALLC_STATIC=ON
+          -DLLVM_INCLUDE_BENCHMARKS=OFF
+          -DLLVM_INCLUDE_EXAMPLES=OFF
+          -DLLVM_INCLUDE_TESTS=OFF
+      - name: Build custom LLVM libraries
+        run: cmake --build llvm-build --target LLVM LLVMGoALLC -j2
+      - name: Assemble LLVM payload
+        run: |
+          mkdir -p llvm/include
+          cp -R llvm-project/llvm/include/. llvm/include/
+          cp -R llvm-build/include/. llvm/include/
+          ln -s ../llvm-build/lib llvm/lib
+      - name: Test bindings
+        run: go test -v -tags="llvm23 ${{ matrix.link }}llvm" ./...
