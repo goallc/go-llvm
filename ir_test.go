@@ -18,6 +18,40 @@ import (
 	"testing"
 )
 
+func TestReplaceIncomingBlock(t *testing.T) {
+	ctx := NewContext()
+	defer ctx.Dispose()
+	mod := ctx.NewModule("phi-incoming-block")
+	defer mod.Dispose()
+	b := ctx.NewBuilder()
+	defer b.Dispose()
+
+	fn := AddFunction(mod, "f", FunctionType(ctx.Int32Type(), nil, false))
+	entry := ctx.AddBasicBlock(fn, "entry")
+	old := ctx.AddBasicBlock(fn, "old")
+	replacement := ctx.AddBasicBlock(fn, "replacement")
+	merge := ctx.AddBasicBlock(fn, "merge")
+
+	b.SetInsertPointAtEnd(entry)
+	b.CreateBr(replacement)
+	b.SetInsertPointAtEnd(old)
+	b.CreateRet(ConstInt(ctx.Int32Type(), 0, false))
+	b.SetInsertPointAtEnd(replacement)
+	b.CreateBr(merge)
+	b.SetInsertPointAtEnd(merge)
+	phi := b.CreatePHI(ctx.Int32Type(), "value")
+	phi.AddIncoming([]Value{ConstInt(ctx.Int32Type(), 7, false)}, []BasicBlock{old})
+	b.CreateRet(phi)
+
+	phi.ReplaceIncomingBlock(old, replacement)
+	if got := phi.IncomingBlock(0); got != replacement {
+		t.Fatalf("incoming block = %v, want replacement", got)
+	}
+	if err := VerifyModule(mod, ReturnStatusAction); err != nil {
+		t.Fatalf("module verification failed: %v\n%s", err, mod.String())
+	}
+}
+
 func testAttribute(t *testing.T, name string) {
 	ctx := NewContext()
 	mod := ctx.NewModule("")
