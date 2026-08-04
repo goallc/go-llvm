@@ -18,6 +18,40 @@ import (
 	"testing"
 )
 
+func TestCreateCallBrIntrinsic(t *testing.T) {
+	ctx := NewContext()
+	defer ctx.Dispose()
+	mod := ctx.NewModule("callbr-intrinsic")
+	defer mod.Dispose()
+	b := ctx.NewBuilder()
+	defer b.Dispose()
+
+	intrinsicID := LookupIntrinsicID("llvm.go.defer.edge")
+	if intrinsicID == 0 {
+		t.Fatal("llvm.go.defer.edge intrinsic is unavailable")
+	}
+	deferEdge := GetIntrinsicDeclaration(mod, intrinsicID, nil)
+	fn := AddFunction(mod, "f", FunctionType(ctx.VoidType(), nil, false))
+	entry := ctx.AddBasicBlock(fn, "entry")
+	normal := ctx.AddBasicBlock(fn, "normal")
+	recover := ctx.AddBasicBlock(fn, "recover")
+
+	b.SetInsertPointAtEnd(entry)
+	b.CreateCallBr(deferEdge.GlobalValueType(), deferEdge, nil, normal, []BasicBlock{recover}, "")
+	b.SetInsertPointAtEnd(normal)
+	b.CreateRetVoid()
+	b.SetInsertPointAtEnd(recover)
+	b.CreateRetVoid()
+
+	if err := VerifyModule(mod, ReturnStatusAction); err != nil {
+		t.Fatalf("module verification failed: %v\n%s", err, mod.String())
+	}
+	if got := mod.String(); !strings.Contains(got, "callbr void @llvm.go.defer.edge()") ||
+		!strings.Contains(got, "to label %normal [label %recover]") {
+		t.Fatalf("module does not contain defer callbr:\n%s", got)
+	}
+}
+
 func TestReplaceIncomingBlock(t *testing.T) {
 	ctx := NewContext()
 	defer ctx.Dispose()
