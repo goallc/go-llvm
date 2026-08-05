@@ -52,6 +52,39 @@ func TestCreateCallBrIntrinsic(t *testing.T) {
 	}
 }
 
+func TestCreateCallWithOperandBundles(t *testing.T) {
+	ctx := NewContext()
+	defer ctx.Dispose()
+	mod := ctx.NewModule("operand-bundle")
+	defer mod.Dispose()
+	b := ctx.NewBuilder()
+	defer b.Dispose()
+
+	donothingID := LookupIntrinsicID("llvm.donothing")
+	if donothingID == 0 {
+		t.Fatal("llvm.donothing intrinsic is unavailable")
+	}
+	donothing := GetIntrinsicDeclaration(mod, donothingID, nil)
+	fnType := FunctionType(ctx.VoidType(), []Type{PointerType(ctx.Int8Type(), 0)}, false)
+	fn := AddFunction(mod, "f", fnType)
+	entry := ctx.AddBasicBlock(fn, "entry")
+
+	b.SetInsertPointAtEnd(entry)
+	bundle := NewOperandBundle("go.keepalive", []Value{fn.Param(0)})
+	b.CreateCallWithOperandBundles(donothing.GlobalValueType(), donothing, nil,
+		[]OperandBundle{bundle}, "")
+	bundle.Dispose()
+	b.CreateRetVoid()
+
+	if err := VerifyModule(mod, ReturnStatusAction); err != nil {
+		t.Fatalf("module verification failed: %v\n%s", err, mod.String())
+	}
+	if got := mod.String(); !strings.Contains(got,
+		`call void @llvm.donothing() [ "go.keepalive"(ptr %0) ]`) {
+		t.Fatalf("module does not contain operand bundle:\n%s", got)
+	}
+}
+
 func TestReplaceIncomingBlock(t *testing.T) {
 	ctx := NewContext()
 	defer ctx.Dispose()
