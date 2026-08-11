@@ -244,6 +244,40 @@ func TestDebugLoc(t *testing.T) {
 	if loc.Scope.C != scope.C {
 		t.Errorf("Got metadata %v as scope, though wanted %v", loc.Scope.C, scope.C)
 	}
+
+	exact := ctx.CreateDebugLocation(11, 7, scope, Metadata{})
+	b.SetCurrentDebugLocationMetadata(exact)
+	if got := b.CurrentDebugLocationMetadata(); got.C != exact.C {
+		t.Errorf("Got exact location %v, want %v", got.C, exact.C)
+	}
+	b.ClearCurrentDebugLocation()
+	if got := b.CurrentDebugLocationMetadata(); !got.IsNil() {
+		t.Errorf("Cleared debug location is non-nil: %v", got.C)
+	}
+}
+
+func TestGoCompileUnitLanguageAndEmission(t *testing.T) {
+	ctx := NewContext()
+	defer ctx.Dispose()
+	mod := ctx.NewModule("go-debug")
+	defer mod.Dispose()
+	d := NewDIBuilder(mod)
+	defer d.Destroy()
+
+	d.CreateCompileUnit(DICompileUnit{
+		Language:     DW_LANG_Go,
+		File:         "debug.go",
+		Producer:     "go-llvm-test",
+		EmissionKind: DwarfEmissionLineTablesOnly,
+	})
+	d.Finalize()
+	text := mod.String()
+	if !strings.Contains(text, "language: DW_LANG_Go") {
+		t.Fatalf("compile unit does not use the Go source language:\n%s", text)
+	}
+	if !strings.Contains(text, "emissionKind: LineTablesOnly") {
+		t.Fatalf("compile unit does not use line-tables-only emission:\n%s", text)
+	}
 }
 
 func TestSubtypes(t *testing.T) {
