@@ -85,6 +85,36 @@ func TestCreateCallWithOperandBundles(t *testing.T) {
 	}
 }
 
+func TestTailCallKind(t *testing.T) {
+	ctx := NewContext()
+	defer ctx.Dispose()
+	mod := ctx.NewModule("tail-call-kind")
+	defer mod.Dispose()
+	b := ctx.NewBuilder()
+	defer b.Dispose()
+
+	fnType := FunctionType(ctx.VoidType(), nil, false)
+	callee := AddFunction(mod, "callee", fnType)
+	caller := AddFunction(mod, "caller", fnType)
+	entry := ctx.AddBasicBlock(caller, "entry")
+	b.SetInsertPointAtEnd(entry)
+	call := b.CreateCall(fnType, callee, nil, "")
+	b.CreateRetVoid()
+
+	tests := []TailCallKind{
+		TailCallKindNone,
+		TailCallKindTail,
+		TailCallKindMustTail,
+		TailCallKindNoTail,
+	}
+	for _, want := range tests {
+		call.SetTailCallKind(want)
+		if got := call.TailCallKind(); got != want {
+			t.Fatalf("TailCallKind() = %v, want %v", got, want)
+		}
+	}
+}
+
 func TestReplaceIncomingBlock(t *testing.T) {
 	ctx := NewContext()
 	defer ctx.Dispose()
