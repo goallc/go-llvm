@@ -1,4 +1,4 @@
-//go:build dynamicllvm
+//go:build !staticllvm
 
 package llvm
 
@@ -19,6 +19,20 @@ import (
 // UsesLinkedPassPlugin reports whether the GoALLC pass implementation is
 // linked into the current process instead of loaded from a shared library.
 func UsesLinkedPassPlugin() bool { return false }
+
+// RunPassPluginEarlyIR loads the GoALLC pass plugin and runs its early IR
+// pipeline before standard LLVM optimization.
+func (m Module) RunPassPluginEarlyIR(plugin string) error {
+	cplugin := C.CString(plugin)
+	defer C.free(unsafe.Pointer(cplugin))
+	err := C.LLVMRunPassPluginEarlyIR(m.C, cplugin)
+	if err == nil {
+		return nil
+	}
+	cstr := C.LLVMGetErrorMessage(err)
+	defer C.LLVMDisposeErrorMessage(cstr)
+	return errors.New(C.GoString(cstr))
+}
 
 // RunPassPluginPreCodeGen loads a pass plugin into the current process and
 // invokes its pre-codegen callback.

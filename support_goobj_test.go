@@ -16,7 +16,7 @@ func TestConfigureGoObjFromModule(t *testing.T) {
 		{
 			name:     "invalid field count",
 			metadata: "!goobj.config = !{!0}\n!0 = !{!\"goallc.goobj\"}",
-			wantErr:  "must contain twelve fields",
+			wantErr:  "must contain one five-field record",
 		},
 	}
 	for _, test := range tests {

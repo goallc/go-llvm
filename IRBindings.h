@@ -33,6 +33,12 @@ struct LLVMDebugLocMetadata{
     LLVMMetadataRef InlinedAt;
 };
 
+LLVMAttributeRef LLVMGoCreateAllocKindAttribute(LLVMContextRef C, LLVMBool Zeroed);
+
+LLVMAttributeRef LLVMGoCreateAllocSizeAttribute(LLVMContextRef C, unsigned SizeArg);
+
+LLVMAttributeRef LLVMGoCreateReadOnlyMemoryAttribute(LLVMContextRef C);
+
 LLVMMetadataRef LLVMConstantAsMetadata(LLVMValueRef Val);
 
 LLVMMetadataRef LLVMMDString2(LLVMContextRef C, const char *Str, unsigned SLen);

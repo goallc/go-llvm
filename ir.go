@@ -81,6 +81,7 @@ type (
 	ComdatSelectionKind C.LLVMComdatSelectionKind
 	IntPredicate        C.LLVMIntPredicate
 	FloatPredicate      C.LLVMRealPredicate
+	FastMathFlags       C.LLVMFastMathFlags
 	InlineAsmDialect    C.LLVMInlineAsmDialect
 )
 
@@ -390,6 +391,8 @@ const (
 	FloatPredicateTrue  FloatPredicate = C.LLVMRealPredicateTrue
 )
 
+const FastMathAllowContract FastMathFlags = C.LLVMFastMathAllowContract
+
 //-------------------------------------------------------------------------
 // llvm.InlineAsmDialect
 //-------------------------------------------------------------------------
@@ -426,6 +429,38 @@ func AttributeKindID(name string) (id uint) {
 	cname := C.CString(name)
 	defer C.free(unsafe.Pointer(cname))
 	id = uint(C.LLVMGetEnumAttributeKindForName(cname, C.size_t(len(name))))
+	return
+}
+
+// CreateConstantRangeAttribute creates a range using little-endian 64-bit words.
+func (c Context) CreateConstantRangeAttribute(kind uint, bits uint, lower, upper []uint64) (a Attribute) {
+	words := int((bits + 63) / 64)
+	if bits == 0 || len(lower) != words || len(upper) != words {
+		panic("invalid constant range attribute width")
+	}
+	a.C = C.LLVMCreateConstantRangeAttribute(c.C, C.unsigned(kind), C.unsigned(bits), (*C.uint64_t)(unsafe.Pointer(&lower[0])), (*C.uint64_t)(unsafe.Pointer(&upper[0])))
+	return
+}
+
+// CreateAllocKindAttribute describes a new allocation, optionally zero-initialized.
+func (c Context) CreateAllocKindAttribute(zeroed bool) (a Attribute) {
+	var zero C.LLVMBool
+	if zeroed {
+		zero = 1
+	}
+	a.C = C.LLVMGoCreateAllocKindAttribute(c.C, zero)
+	return
+}
+
+// CreateAllocSizeAttribute describes an allocation sized by one integer argument.
+func (c Context) CreateAllocSizeAttribute(sizeArg uint) (a Attribute) {
+	a.C = C.LLVMGoCreateAllocSizeAttribute(c.C, C.unsigned(sizeArg))
+	return
+}
+
+// CreateReadOnlyMemoryAttribute creates memory(read) using LLVM's native encoding.
+func (c Context) CreateReadOnlyMemoryAttribute() (a Attribute) {
+	a.C = C.LLVMGoCreateReadOnlyMemoryAttribute(c.C)
 	return
 }
 
@@ -739,6 +774,9 @@ func (v Value) Metadata(kind int) (rv Value) {
 }
 func (v Value) SetMetadata(kind int, node Metadata) {
 	C.LLVMSetMetadata2(v.C, C.unsigned(kind), node.C)
+}
+func (v Value) SetFastMathFlags(flags FastMathFlags) {
+	C.LLVMSetFastMathFlags(v.C, C.LLVMFastMathFlags(flags))
 }
 func (v Value) SetGlobalMetadata(kind int, node Metadata) {
 	C.LLVMGlobalSetMetadata(v.C, C.unsigned(kind), node.C)
