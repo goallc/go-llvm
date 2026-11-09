@@ -1,5 +1,3 @@
-//go:build llvm23
-
 package llvm
 
 // LLVM 23 removed default<Os>. Keep this test focused on the LLVMRunPasses API:

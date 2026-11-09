@@ -26,9 +26,19 @@ extern "C" {
 // message.
 void LLVMLoadLibraryPermanently2(const char *Filename, char **ErrMsg);
 
-// Decode the Go frontend's !goobj.config metadata into the LLVM GoObj writer
-// configuration used by the target code-generation pipeline.
+// Report whether the context diagnostic handler has observed an error. Some
+// target passes emit diagnostics without making the stable target-machine C
+// API return failure, so in-process callers must check this state explicitly.
+LLVMBool LLVMGoALLCContextHasErrors(LLVMContextRef Context);
+
+// Use LLVM's shared decoder for the Go frontend's module configuration before
+// constructing the target code-generation pipeline.
 LLVMErrorRef LLVMConfigureGoObjFromModule(LLVMModuleRef Module);
+
+// Load a pass plugin and run its named GoALLC early-IR pipeline. This happens
+// before the caller's normal optimization pipeline.
+LLVMErrorRef LLVMRunPassPluginEarlyIR(LLVMModuleRef Module,
+                                      const char *Filename);
 
 // Load a pass plugin and invoke its pre-codegen callback on Module. This is
 // the in-process equivalent of llc -load-pass-plugin immediately before llc
