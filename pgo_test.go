@@ -36,7 +36,7 @@ func TestRunPassesWithPGO(t *testing.T) {
 			defer b.Dispose()
 			b.SetInsertPointAtEnd(ctx.AddBasicBlock(fn, "entry"))
 			b.CreateRetVoid()
-			err := mod.RunPassesWithPGO(tc.passes, tm, "", nil)
+			err := mod.RunPassesWithPGO(tc.passes, tm, "")
 			if tc.wantErr != "" {
 				if err == nil || !strings.Contains(err.Error(), tc.wantErr) {
 					t.Fatalf("got %v, want %q", err, tc.wantErr)
@@ -46,7 +46,7 @@ func TestRunPassesWithPGO(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if !strings.Contains(mod.String(), "__profc_entry") {
+			if !strings.Contains(mod.String(), "atomicrmw add") {
 				t.Error("missing compiler-rt counters")
 			}
 		})
